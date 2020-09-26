@@ -27,18 +27,25 @@ class UI {
 
 	constructor ( ) {
 		this.spinner = null;
-		this.events = [];
+		this.events = null;
 	}
 
 	start ( ) {
 		this.spinner = ora({spinner: 'dots'}).start();
+		this.events = [];
+	}
+
+	next ( failed ) {
+		if (failed) this.spinner.fail();
+		else this.spinner.succeed();
+		this.start();
 	}
 
 	render (result) {
 		const duration = audioMilliSeconds(result.byteLength, encodingOptions);
 		this.spinner.prefixText = ` ${renderEvents(this.events)} ${duration}ms\n`;
-		this.spinner.spinner = 'toggle9';
 		this.spinner.text = `${result.text || '...'} (processing: ${result.processingTime}ms)`;
+		if (this.events.length === 1) this.spinner.spinner = 'toggle9';
 	}
 
 	update ( {type, result} ) {
@@ -46,16 +53,12 @@ class UI {
 			this.events.push(type);
 			this.render(result);
 			if (result.done) {
-				this.spinner.stopAndPersist();
-				this.spinner = ora({spinner: 'dots'}).start();
+				this.next(!result.text);
 				if (debug) console.debug(result);
 				if (result.text === 'quit') {
 					this.stop();
 				}
 			}
-		}
-		else {
-			this.events = [];
 		}
 	}
 
