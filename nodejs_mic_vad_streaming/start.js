@@ -4,10 +4,9 @@ const DeepSpeech = require('deepspeech');
 const VAD = require('node-vad');
 const mic = require('mic');
 const fs = require('fs');
-const ora = require('ora');
 
+const UI = require('./UI');
 const Interpreter = require('./Interpreter');
-const { renderEvents } = require('./events');
 
 //const debug = true;
 const debug = false;
@@ -23,51 +22,11 @@ const device = 'default';
 
 const audioMilliSeconds = (byteLength, {rate, bitwidth, channels}) => Math.round((byteLength / bitwidth / channels * 8) * (1 / rate) * 1000);
 
-class UI {
-
-	constructor ( ) {
-		this.spinner = null;
-		this.events = null;
-	}
-
-	start ( ) {
-		this.spinner = ora({spinner: 'dots'}).start();
-		this.events = [];
-	}
-
-	next ( failed ) {
-		if (failed) this.spinner.fail();
-		else this.spinner.succeed();
-		this.start();
-	}
-
-	render (result) {
-		const duration = audioMilliSeconds(result.byteLength, encodingOptions);
-		this.spinner.prefixText = ` ${renderEvents(this.events)} ${duration}ms\n`;
-		this.spinner.text = `${result.text || '...'} (processing: ${result.processingTime}ms)`;
-		if (this.events.length === 1) this.spinner.spinner = 'toggle9';
-	}
-
-	update ( {type, result} ) {
-		if (result) {
-			this.events.push(type);
-			this.render(result);
-			if (result.done) {
-				this.next(!result.text);
-				if (debug) console.debug(result);
-				if (result.text === 'quit') {
-					this.stop();
-				}
-			}
-		}
-	}
-
-	stop ( ) {
-		console.log('quitting...');
-		process.exit();
-	}
-
-}
+const addDuration = ({type, result}, encodingOptions) => {
+	if (!result) return {type};
+	const duration = audioMilliSeconds(result.byteLength, encodingOptions);
+	return {type, result: {...result, duration}};
+};
 
 const createModel = (modelDir) => {
 	const modelPath = modelDir + '.pbmm';
@@ -115,12 +74,12 @@ const main = () => {
 
 	source.pipe(vadStream).on('data', (data) => {
 		const state = interpreter.processVADOutput(data);
-		ui.update(state);
+		ui.update(addDuration(state, encodingOptions));
 	});
 
 	//source.on('data', (data) => {
 		//const state = interpreter.processVoice(data);
-		//ui.update(state);
+		//ui.update(addDuration(state, encodingOptions));
 	//});
 
 	microphone.start();
