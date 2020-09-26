@@ -1,6 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-/deepspeech-0.6.0-models
+/deepspeech-0.8.0-models.*
+*.wav
 
 # dependencies
 /node_modules
