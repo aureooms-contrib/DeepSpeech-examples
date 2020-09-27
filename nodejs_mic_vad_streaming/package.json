@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "deepspeech": "^0.8.2",
+    "mem": "^6.1.1",
     "mic": "^2.1.2",
     "node-vad": "^1.1.4",
     "ora": "^5.1.0",
