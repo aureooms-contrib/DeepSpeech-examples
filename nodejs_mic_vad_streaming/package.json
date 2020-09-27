@@ -6,6 +6,7 @@
     "deepspeech": "^0.8.2",
     "mic": "^2.1.2",
     "node-vad": "^1.1.4",
-    "ora": "^5.1.0"
+    "ora": "^5.1.0",
+    "stream-throttle": "^0.1.3"
   }
 }

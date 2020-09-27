@@ -8,6 +8,7 @@ const {Transform} = require('stream');
 const UI = require('./UI');
 const Interpreter = require('./Interpreter');
 const detectVoice = require('./detectVoice');
+const {Throttle} = require('stream-throttle');
 
 //const debug = true;
 const debug = false;
@@ -71,7 +72,12 @@ const getSource = (encodingOptions) => {
 
 	const source = microphone.getAudioStream();
 
-	//const source = fs.createReadStream('test2.wav');
+	//const {rate, bitwidth, channels} = encodingOptions;
+	//const bps = rate * (bitwidth / 8) * channels;
+	//const chunksize = bps / 4;
+	//const throttle = new Throttle({rate: bps, chunksize});
+	//const source = fs.createReadStream('test2.wav')
+		//.pipe(throttle);
 
 	return source;
 
