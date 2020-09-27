@@ -3,6 +3,7 @@
 const DeepSpeech = require('deepspeech');
 const mic = require('mic');
 const fs = require('fs');
+const wav = require('wav');
 const {Transform} = require('stream');
 
 const UI = require('./UI');
@@ -59,28 +60,37 @@ const createModel = (modelDir) => {
 	return model;
 };
 
-const getSource = (encodingOptions) => {
+const getMicrophoneSource = (encodingOptions) => {
 
 	const microphone = mic({
 		...encodingOptions,
 		device,
 		debug,
-		fileType: 'wav'
+		fileType: 'raw'
 	});
 
 	microphone.start();
 
-	const source = microphone.getAudioStream();
+	return microphone.getAudioStream();
 
-	//const {rate, bitwidth, channels} = encodingOptions;
-	//const bps = rate * (bitwidth / 8) * channels;
-	//const chunksize = bps / 4;
-	//const throttle = new Throttle({rate: bps, chunksize});
-	//const source = fs.createReadStream('test2.wav')
-		//.pipe(throttle);
+};
 
-	return source;
+const getFileSource = (encodingOptions) => {
 
+	const filename = 'test2.wav';
+	const {rate, bitwidth, channels} = encodingOptions;
+	const bps = rate * (bitwidth / 8) * channels;
+	const chunksize = bps / 8; // 125ms chunks
+	const throttle = new Throttle({rate: bps, chunksize});
+	return fs.createReadStream(filename)
+		.pipe(new wav.Reader())
+		.pipe(throttle);
+
+};
+
+const getSource = (encodingOptions) => {
+	return getMicrophoneSource(encodingOptions);
+	//return getFileSource(encodingOptions);
 };
 
 const interpretVoice = (model) => new Interpreter(model).stream();
