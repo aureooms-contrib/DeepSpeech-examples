@@ -28,13 +28,13 @@ class UI {
 		this.spinner.text = `${result.text || '...'} (processing: ${result.processingTime}ms)`;
 	}
 
-	update ( {type, result} ) {
-		if (result) {
-			this.events.push(type);
-			this.render(result);
-			if (result.done) {
-				this.next(!result.text);
-				if (result.text === 'quit') {
+	update ( {meta: {event, transcript}} ) {
+		if (transcript) {
+			this.events.push(event);
+			this.render(transcript);
+			if (transcript.done) {
+				this.next(!transcript.text);
+				if (transcript.text === 'quit') {
 					this.stop();
 				}
 			}

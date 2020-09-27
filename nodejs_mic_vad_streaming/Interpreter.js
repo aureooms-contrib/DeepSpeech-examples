@@ -1,3 +1,5 @@
+const {Transform} = require('stream');
+
 const {
 	EVENT_VOICE_START,
 	EVENT_VOICE,
@@ -19,10 +21,8 @@ class Interpreter {
 		this.silenceBuffers = [];
 	}
 
-	processVADOutput (data) {
-		const isVoice = data.speech.state;
-		const audio = data.audioData;
-		return isVoice ? this.processVoice(audio) : this.processSilence(audio);
+	process ({meta, data}) {
+		return meta.isVoice !== false ? this.processVoice(data) : this.processSilence(data);
 	}
 
 	processSilence (data) {
@@ -79,6 +79,25 @@ class Interpreter {
 			const result = this.transcript.process(data);
 			return {type, result};
 		}
+	}
+
+	stream () {
+		const that = this;
+		return new Transform({
+			objectMode: true,
+			transform({meta, data}, encoding, callback) {
+				const {type, result} = that.process({meta, data});
+				const state = {
+					meta: {
+						...meta,
+						event: type,
+						transcript: result
+					},
+					data
+				};
+				callback(null, state);
+			}
+		});
 	}
 
 }

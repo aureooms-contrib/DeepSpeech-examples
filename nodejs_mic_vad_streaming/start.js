@@ -1,32 +1,53 @@
 'use strict';
 
 const DeepSpeech = require('deepspeech');
-const VAD = require('node-vad');
 const mic = require('mic');
 const fs = require('fs');
+const {Transform} = require('stream');
 
 const UI = require('./UI');
 const Interpreter = require('./Interpreter');
+const detectVoice = require('./detectVoice');
 
 //const debug = true;
 const debug = false;
 
 const DEEPSPEECH_MODEL = process.env.DEEPSPEECH_MODEL || __dirname + '/deepspeech-0.8.0-models';
 
-//const VAD_MODE = VAD.Mode.NORMAL;
-//const VAD_MODE = VAD.Mode.LOW_BITRATE;
-const VAD_MODE = VAD.Mode.AGGRESSIVE;
-//const VAD_MODE = VAD.Mode.VERY_AGGRESSIVE;
-
 const device = 'default';
 
 const audioMilliSeconds = (byteLength, {rate, bitwidth, channels}) => Math.round((byteLength / bitwidth / channels * 8) * (1 / rate) * 1000);
 
-const addDuration = ({type, result}, encodingOptions) => {
-	if (!result) return {type};
-	const duration = audioMilliSeconds(result.byteLength, encodingOptions);
-	return {type, result: {...result, duration}};
-};
+const addDuration = (encodingOptions) => new Transform({
+	objectMode: true,
+	transform({meta, data}, encoding, callback) {
+		if (!meta.transcript) {
+			callback(null, {meta, data});
+			return;
+		}
+		const duration = audioMilliSeconds(meta.transcript.byteLength, encodingOptions);
+		const state = {
+			data,
+			meta: {
+				...meta,
+				transcript: {
+					...meta.transcript,
+					duration
+				}
+			}
+		};
+		callback(null, state);
+	}
+});
+
+const objectify = () => new Transform({
+	writableObjectMode: false,
+	readableObjectMode: true,
+	transform(data, encoding, callback) {
+		const state = {meta: {}, data};
+		callback(null, state);
+	}
+});
 
 const createModel = (modelDir) => {
 	const modelPath = modelDir + '.pbmm';
@@ -37,21 +58,7 @@ const createModel = (modelDir) => {
 	return model;
 };
 
-const model = createModel(DEEPSPEECH_MODEL);
-const rate = model.sampleRate();
-
-const encodingOptions = {
-	rate,
-	channels: '1',
-	encoding: 'signed-integer',
-	bitwidth: 16,
-	endian: 'little'
-};
-
-const main = () => {
-
-	const ui = new UI();
-	ui.start();
+const getSource = (encodingOptions) => {
 
 	const microphone = mic({
 		...encodingOptions,
@@ -60,29 +67,45 @@ const main = () => {
 		fileType: 'wav'
 	});
 
+	microphone.start();
+
 	const source = microphone.getAudioStream();
 
 	//const source = fs.createReadStream('test2.wav');
 
-	const vadStream = VAD.createStream({
-		mode: VAD_MODE,
-		audioFrequency: rate,
-		debounceTime: 0
-	});
+	return source;
 
-	const interpreter = new Interpreter(model);
+};
 
-	source.pipe(vadStream).on('data', (data) => {
-		const state = interpreter.processVADOutput(data);
-		ui.update(addDuration(state, encodingOptions));
-	});
+const interpretVoice = (model) => new Interpreter(model).stream();
 
-	//source.on('data', (data) => {
-		//const state = interpreter.processVoice(data);
-		//ui.update(addDuration(state, encodingOptions));
-	//});
+const main = () => {
 
-	microphone.start();
+	const model = createModel(DEEPSPEECH_MODEL);
+	const rate = model.sampleRate();
+
+	const ui = new UI();
+	ui.start();
+
+	const encodingOptions = {
+		rate,
+		channels: '1',
+		encoding: 'signed-integer',
+		bitwidth: 16,
+		endian: 'little'
+	};
+
+	const source = getSource(encodingOptions);
+
+	source
+		.pipe(objectify())
+		.pipe(detectVoice(rate))
+		.pipe(interpretVoice(model))
+		.pipe(addDuration(encodingOptions))
+		.on('data', (state) => {
+			ui.update(state);
+		});
+
 }
 
 main();
